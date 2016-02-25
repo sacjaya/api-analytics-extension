@@ -38,17 +38,16 @@ public class APIAnalyticsTestCase {
 
 
         String streams = "  define stream statResponseStream (consumerKey STRING ,context STRING, api_version STRING,api STRING, resourcePath STRING, method STRING,version STRING, response INT, responseTime LONG,serviceTime LONG,backendTime LONG,user STRING,eventTime LONG,tenantDomain STRING," +
-                "host STRING,apiPublisher STRING,application STRING, applicationId STRING,cacheHit BOOL, responseSize LONG,protocol STRING); "  ;
+                "host STRING,apiPublisher STRING,application STRING, applicationId STRING,cacheHit BOOL, responseSize LONG,protocol STRING); ";
         String executionPlan = "@info(name = 'query1') " +
                 "from statResponseStream  " +
                 "select api_version, avg(responseTime) as avgResponseTime, stddev(responseTime) as sdResponseTime " +
                 "group by api_version " +
-                "insert into rawDataStream ; "       +
+                "insert into rawDataStream ; " +
 
                 "from rawDataStream " +
                 "select api_version , analytics:percentile(avgResponseTime, sdResponseTime, 50) as percentile " +
-                "insert into percentileInfoStream ; "
-                ;
+                "insert into percentileInfoStream ; ";
 
 
         ExecutionPlanRuntime executionPlanRuntime = siddhiManager.createExecutionPlanRuntime(streams + executionPlan);
@@ -64,9 +63,9 @@ public class APIAnalyticsTestCase {
         InputHandler inputHandler = executionPlanRuntime
                 .getInputHandler("statResponseStream");
         executionPlanRuntime.start();
-        inputHandler.send(new Object[]{"consumerKey" ,"context", "api_version" ,"api", "resourcePath", "method","version", 123, 100l ,25l ,34l ,"user", 67l ,"tenantDomain" ,"host","apiPublisher","application", "applicationId",true, 34l,"protocol"});
-        inputHandler.send(new Object[]{"consumerKey" ,"context", "api_version" ,"api", "resourcePath", "method","version", 123, 200l ,25l ,34l ,"user", 67l ,"tenantDomain" ,"host","apiPublisher","application", "applicationId",true, 34l,"protocol"});
-        Thread.sleep(1000000);
+        inputHandler.send(new Object[]{"consumerKey", "context", "api_version", "api", "resourcePath", "method", "version", 123, 100l, 25l, 34l, "user", 67l, "tenantDomain", "host", "apiPublisher", "application", "applicationId", true, 34l, "protocol"});
+        inputHandler.send(new Object[]{"consumerKey", "context", "api_version", "api", "resourcePath", "method", "version", 123, 200l, 25l, 34l, "user", 67l, "tenantDomain", "host", "apiPublisher", "application", "applicationId", true, 34l, "protocol"});
+        Thread.sleep(1000);
         executionPlanRuntime.shutdown();
     }
 }

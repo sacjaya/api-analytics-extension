@@ -19,6 +19,7 @@
 package org.wso2.api.analytics.siddhi.extension.percentile;
 
 import org.apache.commons.math3.distribution.NormalDistribution;
+import org.apache.commons.math3.exception.OutOfRangeException;
 import org.wso2.siddhi.core.config.ExecutionPlanContext;
 import org.wso2.siddhi.core.executor.ConstantExpressionExecutor;
 import org.wso2.siddhi.core.executor.ExpressionExecutor;
@@ -38,20 +39,25 @@ public class PercentileFunctionExtension extends FunctionExecutor {
             throw new ExecutionPlanValidationException("Invalid no of arguments passed to PercentileFunctionExtension, required 3, " +
                     "but found " + attributeExpressionExecutors.length);
         }
-
         if (attributeExpressionExecutors[0].getReturnType() != Attribute.Type.DOUBLE ) {
             throw new ExecutionPlanValidationException("Invalid parameter type found for the 1st argument of PercentileFunctionExtension, " +
                     "required " + Attribute.Type.DOUBLE + " but found " + attributeExpressionExecutors[0].getReturnType().toString());
         }
-
         if (attributeExpressionExecutors[1].getReturnType() != Attribute.Type.DOUBLE ) {
             throw new ExecutionPlanValidationException("Invalid parameter type found for the 2nd argument of PercentileFunctionExtension, " +
                     "required " + Attribute.Type.DOUBLE + " but found " + attributeExpressionExecutors[1].getReturnType().toString());
         }
-
-        double percentile = (double) Integer.parseInt(String.valueOf(((ConstantExpressionExecutor) attributeExpressionExecutors[2]).getValue()))/100;
-        zValue = new NormalDistribution().inverseCumulativeProbability(percentile);
-
+        if(attributeExpressionExecutors[2] instanceof ConstantExpressionExecutor) {
+            double percentile = (Double.parseDouble(String.valueOf(((ConstantExpressionExecutor) attributeExpressionExecutors[2]).getValue())))/ 100;
+            try {
+                zValue = new NormalDistribution().inverseCumulativeProbability(percentile);
+            } catch (OutOfRangeException ex){
+                throw new ExecutionPlanValidationException("Invalid value found for the 3rd argument of PercentileFunctionExtension, Percentile should be in the range of [0, 100]");
+            }
+        } else {
+            throw new ExecutionPlanValidationException("Invalid parameter type found for the 3rd argument of PercentileFunctionExtension, " +
+                    "required  a constant value of type" + Attribute.Type.DOUBLE + " or " + Attribute.Type.INT +" in the range of [0, 100], but found " + attributeExpressionExecutors[1].getReturnType().toString());
+        }
     }
 
     //X =  mean+ z*sd
