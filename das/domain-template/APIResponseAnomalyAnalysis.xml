@@ -16,50 +16,51 @@
 
 
                                 @Import('org.wso2.apimgt.statistics.response:1.0.0')
-                                define stream responseStream (meta_clientType string, consumerKey string, context string, api_version string, api string, resourcePath string, method string, version string, response int, responseTime long, serviceTime long, backendTime long, username string, eventTime long, tenantDomain string, hostName string, apiPublisher string, applicationName string, applicationId string, cacheHit bool, responseSize long, protocol string);
+				define stream responseStream (meta_clientType string, consumerKey string, context string, api_version string, api string, resourcePath string, method string, version string, response int, responseTime long, serviceTime long, backendTime long, username string, eventTime long, tenantDomain string, hostName string, apiPublisher string, applicationName string, applicationId string, cacheHit bool, responseSize long, protocol string);
 
-                                @Export('abnormalResponseTimeAlertStream:1.0.0')
-                                define stream abnormalResponseTimeAlertStream (api string, responseTime long, responsePercentile double);
+				@Export('abnormalBackendTimeAlertStream:1.0.0')
+				define stream abnormalBackendTimeAlertStream (api string, tenantDomain string, backendTime long, backendPercentile double);
 
-                                @Export('abnormalBackendTimeAlertStream:1.0.0')
-                                define stream abnormalBackendTimeAlertStream (api string, backendTime long, backendPercentile double);
-
-                                @from(eventtable = 'analytics.table' , table.name = 'RESPONSE_PERCENTILE_TABLE',  primary.keys = 'api_version')
-                                define table percentileTable (api_version string, responsePercentile double, backendPercentile double );
+				@Export('abnormalResponseTimeAlertStream:1.0.0')
+				define stream abnormalResponseTimeAlertStream (api string, tenantDomain string, responseTime long, responsePercentile double);
 
 
-                                @info(name = 'query1') 
-                                from responseStream
-                                select api_version, responseTime, backendTime 
-                                insert into responseSummaryStream; 
+				@from(eventtable = 'analytics.table' , table.name = 'RESPONSE_PERCENTILE_TABLE',  primary.keys = 'api_version,tenantDomain')
+				define table percentileTable (api_version string, tenantDomain string, responsePercentile double, backendPercentile double );
 
 
-                                @info(name = 'query2') 
-                                from responseSummaryStream#window.timeBatch(1 day)
-                                select api_version, avg(responseTime) as avgResponseTime, stddev(responseTime) as sdResponseTime, avg(backendTime) as avgBackendTime,  stddev(backendTime) as sdBackendTime 
-                                group by api_version  
-                                insert into responseStatStream ;
+				@info(name = 'query1') 
+				from responseStream
+				select api_version, tenantDomain, responseTime, backendTime 
+				insert into responseSummaryStream; 
 
-                                @info(name = 'query3') 
-                                from responseStatStream 
-                                select api_version , analytics:percentile(avgResponseTime, sdResponseTime, $responseTimePercentile) as responsePercentile , analytics:percentile(avgBackendTime, sdBackendTime, $backendTimePercentile) as backendPercentile  
-                                insert into percentileTable  ;
 
-                                @info(name = 'query4') 
-                                from responseSummaryStream join percentileTable 
-                                on responseSummaryStream.api_version==percentileTable.api_version 
-                                select responseSummaryStream.api_version, responseSummaryStream.responseTime, percentileTable.responsePercentile , responseSummaryStream.backendTime,  percentileTable.backendPercentile                  
-                                insert into responseInfoStream;
-                                 
-                                @info(name = 'query5')
-                                from responseInfoStream[responseTime > responsePercentile] 
-                                select api_version as api, responseTime, responsePercentile 
-                                insert into abnormalResponseTimeAlertStream;
-                                 
-                                @info(name = 'query6') 
-                                from responseInfoStream[backendTime > backendPercentile]
-                                select api_version as api, backendTime, backendPercentile  
-                                insert into abnormalBackendTimeAlertStream;                   
+				@info(name = 'query2') 
+				from responseSummaryStream#window.timeBatch(1 day)
+				select api_version, tenantDomain, avg(responseTime) as avgResponseTime, stddev(responseTime) as sdResponseTime, avg(backendTime) as avgBackendTime,  stddev(backendTime) as sdBackendTime 
+				group by api_version, tenantDomain 
+				insert into responseStatStream ;
+
+				@info(name = 'query3') 
+				from responseStatStream 
+				select api_version , tenantDomain,  analytics:percentile(avgResponseTime, sdResponseTime, $responseTimePercentile) as responsePercentile , analytics:percentile(avgBackendTime, sdBackendTime, $backendTimePercentile) as backendPercentile  
+				insert into percentileTable  ;
+
+				@info(name = 'query4') 
+				from responseSummaryStream join percentileTable 
+				on (responseSummaryStream.api_version==percentileTable.api_version and responseSummaryStream.tenantDomain==percentileTable.tenantDomain )
+				select responseSummaryStream.api_version, responseSummaryStream.tenantDomain, responseSummaryStream.responseTime, percentileTable.responsePercentile , responseSummaryStream.backendTime,  percentileTable.backendPercentile                  
+				insert into responseInfoStream;
+
+				@info(name = 'query5')
+				from responseInfoStream[responseTime > responsePercentile] 
+				select api_version as api, tenantDomain, responseTime, responsePercentile 
+				insert into abnormalResponseTimeAlertStream;
+
+				@info(name = 'query6') 
+				from responseInfoStream[backendTime > backendPercentile]
+				select api_version as api, tenantDomain, backendTime, backendPercentile  
+				insert into abnormalBackendTimeAlertStream;                 
                                  ]]></executionPlan>
       <parameters>
         <parameter name="responseTimePercentile" type="int">
@@ -190,6 +191,10 @@
                               "name": "api",
                               "type": "STRING"
                             },
+			    {
+			      "name": "tenantDomain",
+			      "type": "STRING"
+			    }, 				
                             {
                               "name": "backendTime",
                               "type": "LONG"
@@ -214,6 +219,10 @@
                               "name": "api",
                               "type": "STRING"
                             },
+			    {
+			      "name": "tenantDomain",
+			      "type": "STRING"
+			    },
                             {
                               "name": "responseTime",
                               "type": "LONG"
